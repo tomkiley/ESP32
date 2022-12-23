@@ -7,4 +7,4 @@ ESP32 Projects
 
 ## Projects
 
-### Bide Display
+### Bike Display
