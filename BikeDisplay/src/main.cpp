@@ -30,6 +30,7 @@
 #include <InfluxDbCloud.h>
 
 #include "secrets.h"
+#include "types.h"
 
 // WiFi AP SSID
 #define WIFI_SSID "FiOS-396M6"
@@ -96,6 +97,33 @@ void setup() {
   }
 }
 
+bike_message query_status() {
+  bike_message bm;
+
+  FluxQueryResult cadence = client.query(CADENCE_QUERY);
+  bm.cadence = cadence.getValueByIndex(0).getDouble();
+
+  FluxQueryResult speed = client.query(SPEED_QUERY);
+  bm.speed = speed.getValueByIndex(0).getDouble();
+
+  FluxQueryResult distance = client.query(DISTANCE_QUERY);
+  bm.distance = distance.getValueByIndex(0).getDouble();
+
+  return bm;
+}
+
+void print_bm(const bike_message &bm) {
+  Serial.print("Cadence ");
+  Serial.println(bm.cadence);
+
+  Serial.print("Speed ");
+  Serial.println(bm.speed);
+
+  Serial.print("Distance ");
+  Serial.println(bm.distance);
+
+}
+
 void loop() {
   // Store measured value into point
   sensor.clearFields();
@@ -113,6 +141,10 @@ void loop() {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
   }
+
+  bike_message bm = query_status();
+  print_bm(bm);
+  
 
   //Wait 10s
   Serial.println("Wait 10s");
