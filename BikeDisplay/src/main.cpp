@@ -28,6 +28,7 @@
 
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 
 #include "secrets.h"
 #include "types.h"
@@ -43,6 +44,41 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_BUCKET);
 
 // Data point
 Point sensor("wifi_status");
+
+MatrixPanel_I2S_DMA *display = nullptr;
+
+//TODO global cleanup
+uint16_t myBLACK = display->color565(0, 0, 0);
+uint16_t myWHITE = display->color565(255, 255, 255);
+uint16_t myRED = display->color565(255, 0, 0);
+uint16_t myGREEN = display->color565(0, 255, 0);
+uint16_t myBLUE = display->color565(0, 0, 255);
+
+void displaySetup()
+{
+  HUB75_I2S_CFG mxconfig(
+      panelResX,  // module width
+      panelResY,  // module height
+      panel_chain // Chain length
+  );
+
+  // If you are using a 64x64 matrix you need to pass a value for the E pin
+  // The trinity connects GPIO 18 to E.
+  // This can be commented out for any smaller displays (but should work fine with it)
+  mxconfig.gpio.e = 18;
+
+  // May or may not be needed depending on your matrix
+  // Example of what needing it looks like:
+  // https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA/issues/134#issuecomment-866367216
+  mxconfig.clkphase = false;
+
+  // Some matrix panels use different ICs for driving them and some of them have strange quirks.
+  // If the display is not working right, try this.
+  //mxconfig.driver = HUB75_I2S_CFG::FM6126A;
+
+  display = new MatrixPanel_I2S_DMA(mxconfig);
+  display->begin();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -78,6 +114,9 @@ void setup() {
     Serial.print("InfluxDB connection failed: ");
     Serial.println(client.getLastErrorMessage());
   }
+
+  displaySetup();
+  display->clearScreen();
 }
 
 bike_message query_status() {
@@ -107,6 +146,27 @@ void print_bm(const bike_message &bm) {
 
 }
 
+void render_bm(const bike_message &bm) {
+  display->clearScreen();
+  display->fillScreen(myBLACK);
+  display->setTextWrap(false);
+  
+  display->setTextSize(1);     // size 1 == 8 pixels high
+  display->setTextColor(myBLUE);
+  display->setCursor(0, 0);
+  display->print("Hello");
+
+  display->setTextSize(2);     // size 2 == 16 pixels high
+  display->setTextColor(myGREEN);
+  display->setCursor(0, 8);
+  display->print("Hello");
+
+  display->setTextSize(3);     // size 3 == 24 pixels high
+  display->setTextColor(myRED);
+  display->setCursor(0, 24);
+  display->print("Hello");
+}
+
 void loop() {
   // Store measured value into point
   sensor.clearFields();
@@ -127,6 +187,7 @@ void loop() {
 
   bike_message bm = query_status();
   print_bm(bm);
+  render_bm(bm);
   
 
   //Wait 10s
