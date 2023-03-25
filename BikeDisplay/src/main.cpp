@@ -30,6 +30,8 @@
 #include <InfluxDbCloud.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 
+#include <Fonts/Picopixel.h>
+
 #include "secrets.h"
 #include "types.h"
 #include "config.h"
@@ -65,12 +67,12 @@ void displaySetup()
   // If you are using a 64x64 matrix you need to pass a value for the E pin
   // The trinity connects GPIO 18 to E.
   // This can be commented out for any smaller displays (but should work fine with it)
-  mxconfig.gpio.e = 18;
+  // mxconfig.gpio.e = 18;
 
   // May or may not be needed depending on your matrix
   // Example of what needing it looks like:
   // https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA/issues/134#issuecomment-866367216
-  mxconfig.clkphase = false;
+  // mxconfig.clkphase = false;
 
   // Some matrix panels use different ICs for driving them and some of them have strange quirks.
   // If the display is not working right, try this.
@@ -78,10 +80,14 @@ void displaySetup()
 
   display = new MatrixPanel_I2S_DMA(mxconfig);
   display->begin();
+
+  display->setFont(&Picopixel);
 }
 
 void setup() {
   Serial.begin(115200);
+
+  WiFi.disconnect();
 
   // Setup wifi
   WiFi.mode(WIFI_STA);
@@ -151,20 +157,24 @@ void render_bm(const bike_message &bm) {
   display->fillScreen(myBLACK);
   display->setTextWrap(false);
   
-  display->setTextSize(1);     // size 1 == 8 pixels high
+  display->setTextSize(1); 
   display->setTextColor(myBLUE);
-  display->setCursor(0, 0);
-  display->print("Hello");
 
-  display->setTextSize(2);     // size 2 == 16 pixels high
-  display->setTextColor(myGREEN);
-  display->setCursor(0, 8);
-  display->print("Hello");
+  //positions are lower left of char
+  // chars ate 5 high, 3 wide
 
-  display->setTextSize(3);     // size 3 == 24 pixels high
-  display->setTextColor(myRED);
-  display->setCursor(0, 24);
-  display->print("Hello");
+  display->setCursor(1, 10);
+  display->printf("%3.0f RPM", bm.cadence);
+
+  display->setCursor(35, 10);
+  display->printf("%2.1f MPH", bm.speed);
+
+  display->setCursor(1, 18);
+  display->printf("%3d:%2d MINS", 0,1);
+
+  display->setCursor(35, 18);
+  display->printf("%2.1f MI", bm.distance);
+
 }
 
 void loop() {
