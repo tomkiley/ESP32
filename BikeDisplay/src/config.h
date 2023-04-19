@@ -7,6 +7,7 @@ const int panelResX = 64;   // Number of pixels wide of each INDIVIDUAL panel mo
 const int panelResY = 32;   // Number of pixels tall of each INDIVIDUAL panel module.
 const int panel_chain = 1;  // Total number of panels chained one to another.
 
+#define HOSTNAME "bikedisplay"
 
 // WiFi AP SSID
 #define WIFI_SSID "FiOS-396M6"

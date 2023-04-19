@@ -59,7 +59,9 @@
 			"stdexcept": "cpp",
 			"streambuf": "cpp",
 			"cinttypes": "cpp",
-			"typeinfo": "cpp"
+			"typeinfo": "cpp",
+			"arduinoota.h": "c",
+			"ota.h": "c"
 		}
 	}
 }

@@ -29,12 +29,13 @@
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
-
+#include <ArduinoOTA.h>
 #include <Fonts/Picopixel.h>
 
 #include "secrets.h"
 #include "types.h"
 #include "config.h"
+#include "ota.h"
 
 
 // InfluxDB client instance with preconfigured InfluxCloud certificate
@@ -121,6 +122,7 @@ void setup() {
     Serial.println(client.getLastErrorMessage());
   }
 
+  setup_ota();
   displaySetup();
   display->clearScreen();
 }
@@ -199,8 +201,10 @@ void loop() {
   print_bm(bm);
   render_bm(bm);
   
+  //TODO kick to new thread?
+  check_ota();
 
   //Wait 10s
-  Serial.println("Wait 10s");
-  delay(10000);
+  Serial.println("Wait 3s");
+  delay(3000);
 }
