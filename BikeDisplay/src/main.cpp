@@ -194,12 +194,12 @@ void render_bm(const bike_message &bm) {
 
 void loop() {
   // Store measured value into point
-  sensor.clearFields();
-  // Report RSSI of currently connected network
-  sensor.addField("rssi", WiFi.RSSI());
-  // Print what are we exactly writing
-  Serial.print("Writing: ");
-  Serial.println(client.pointToLineProtocol(sensor));
+  // sensor.clearFields();
+  // // Report RSSI of currently connected network
+  // sensor.addField("rssi", WiFi.RSSI());
+  // // Print what are we exactly writing
+  // Serial.print("Writing: ");
+  // Serial.println(client.pointToLineProtocol(sensor));
   // If no Wifi signal, try to reconnect it
   if (wifiMulti.run() != WL_CONNECTED) {
     Serial.println("Wifi connection lost");
@@ -219,6 +219,6 @@ void loop() {
   check_ota();
 
   //Wait 10s
-  Serial.println("Wait 3s");
-  delay(3000);
+  Serial.println("Wait 500ms");
+  delay(500);
 }
