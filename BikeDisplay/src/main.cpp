@@ -85,9 +85,7 @@ void displaySetup()
   display->setFont(&Picopixel);
 }
 
-void setup() {
-  Serial.begin(115200);
-
+void setup_wifi() {
   WiFi.disconnect();
 
   // Setup wifi
@@ -121,7 +119,12 @@ void setup() {
     Serial.print("InfluxDB connection failed: ");
     Serial.println(client.getLastErrorMessage());
   }
+}
 
+void setup() {
+  Serial.begin(115200);
+
+  setup_wifi();
   setup_ota();
   displaySetup();
   display->clearScreen();
@@ -160,21 +163,31 @@ void render_bm(const bike_message &bm) {
   display->setTextWrap(false);
   
   display->setTextSize(1); 
-  display->setTextColor(myBLUE);
+  display->setTextColor(myRED);
 
   //positions are lower left of char
   // chars ate 5 high, 3 wide
 
-  display->setCursor(1, 10);
-  display->printf("%3.0f RPM", bm.cadence);
+  time_t rawtime;
+  struct tm * timeinfo;
+  char buffer [9];
+  
+  time ( &rawtime );
+  timeinfo = localtime ( &rawtime );
+  strftime (buffer,9,"%I:%M:%S.",timeinfo);
+  display->setCursor(35,6);
+  display->printf(buffer);
 
-  display->setCursor(35, 10);
+  display->setCursor(1, 14);
+  display->printf(" %3.0f RPM", bm.cadence);
+
+  display->setCursor(35, 14);
   display->printf("%2.1f MPH", bm.speed);
 
-  display->setCursor(1, 18);
-  display->printf("%3d:%2d MINS", 0,1);
+  display->setCursor(1, 22);
+  display->printf("%1d:%02d MIN", 0,1);
 
-  display->setCursor(35, 18);
+  display->setCursor(35, 22);
   display->printf("%2.1f MI", bm.distance);
 
 }
@@ -190,12 +203,13 @@ void loop() {
   // If no Wifi signal, try to reconnect it
   if (wifiMulti.run() != WL_CONNECTED) {
     Serial.println("Wifi connection lost");
+    setup_wifi();
   }
   // Write point
-  if (!client.writePoint(sensor)) {
-    Serial.print("InfluxDB write failed: ");
-    Serial.println(client.getLastErrorMessage());
-  }
+  // if (!client.writePoint(sensor)) {
+  //   Serial.print("InfluxDB write failed: ");
+  //   Serial.println(client.getLastErrorMessage());
+  // }
 
   bike_message bm = query_status();
   print_bm(bm);
