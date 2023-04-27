@@ -32,6 +32,10 @@
 #include <ArduinoOTA.h>
 #include <Fonts/Picopixel.h>
 
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSerial.h>
+
 #include "secrets.h"
 #include "types.h"
 #include "config.h"
@@ -45,6 +49,8 @@
 
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_BUCKET);
 
+AsyncWebServer server(80);
+
 // Data point
 Point sensor("wifi_status");
 
@@ -56,6 +62,8 @@ uint16_t myWHITE = display->color565(255, 255, 255);
 uint16_t myRED = display->color565(255, 0, 0);
 uint16_t myGREEN = display->color565(0, 255, 0);
 uint16_t myBLUE = display->color565(0, 0, 255);
+
+uint8_t GLOBAL_COUNTER = 0;
 
 void displaySetup()
 {
@@ -83,6 +91,7 @@ void displaySetup()
   display->begin();
 
   display->setFont(&Picopixel);
+  display->setTextWrap(false);
 }
 
 void setup_wifi() {
@@ -93,15 +102,16 @@ void setup_wifi() {
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to wifi");
+  display->setCursor(30,4);
   while (wifiMulti.run() != WL_CONNECTED) {
     Serial.print(".");
+    display->print(".");
     delay(500);
   }
   Serial.println();
 
-  // Add tags
-  sensor.addTag("device", DEVICE);
-  sensor.addTag("SSID", WiFi.SSID());
+  WebSerial.begin(&server);
+  server.begin();
 
   // Alternatively, set insecure connection to skip server certificate validation 
   //client.setInsecure();
@@ -124,9 +134,9 @@ void setup_wifi() {
 void setup() {
   Serial.begin(115200);
 
+  displaySetup();
   setup_wifi();
   setup_ota();
-  displaySetup();
   display->clearScreen();
 }
 
@@ -135,6 +145,9 @@ bike_message query_status() {
 
   FluxQueryResult cadence = client.query(CADENCE_QUERY);
   bm.cadence = cadence.getValueByIndex(0).getDouble();
+
+  WebSerial.printf("Code %d\n", client.getLastStatusCode());
+  WebSerial.println(client.getLastErrorMessage());
 
   FluxQueryResult speed = client.query(SPEED_QUERY);
   bm.speed = speed.getValueByIndex(0).getDouble();
@@ -155,12 +168,21 @@ void print_bm(const bike_message &bm) {
   Serial.print("Distance ");
   Serial.println(bm.distance);
 
+
+  // WebSerial.print("Cadence ");
+  // WebSerial.println(bm.cadence);
+
+  // WebSerial.print("Speed ");
+  // WebSerial.println(bm.speed);
+
+  // WebSerial.print("Distance ");
+  // WebSerial.println(bm.distance);
+
 }
 
 void render_bm(const bike_message &bm) {
   display->clearScreen();
   display->fillScreen(myBLACK);
-  display->setTextWrap(false);
   
   display->setTextSize(1); 
   display->setTextColor(myRED);
@@ -168,28 +190,35 @@ void render_bm(const bike_message &bm) {
   //positions are lower left of char
   // chars ate 5 high, 3 wide
 
+  if (bm.cadence != 0 || bm.distance != 0 ){
+    display->setCursor(1, 14);
+    display->printf(" %3.0f RPM", bm.cadence);
+
+    display->setCursor(35, 14);
+    display->printf("%2.1f MPH", bm.speed);
+
+    display->setCursor(1, 22);
+    display->printf("%1d:%02d MIN", 0,1);
+
+    display->setCursor(35, 22);
+    display->printf("%2.1f MI", bm.distance);
+  }
+
+}
+
+void render_time() {
   time_t rawtime;
   struct tm * timeinfo;
   char buffer [9];
   
   time ( &rawtime );
   timeinfo = localtime ( &rawtime );
-  strftime (buffer,9,"%I:%M:%S.",timeinfo);
+  strftime (buffer,9,"%I:%M:%S",timeinfo);
+
+  display->setCursor(35,6);
+  display->printf("        ");
   display->setCursor(35,6);
   display->printf(buffer);
-
-  display->setCursor(1, 14);
-  display->printf(" %3.0f RPM", bm.cadence);
-
-  display->setCursor(35, 14);
-  display->printf("%2.1f MPH", bm.speed);
-
-  display->setCursor(1, 22);
-  display->printf("%1d:%02d MIN", 0,1);
-
-  display->setCursor(35, 22);
-  display->printf("%2.1f MI", bm.distance);
-
 }
 
 void loop() {
@@ -211,14 +240,17 @@ void loop() {
   //   Serial.println(client.getLastErrorMessage());
   // }
 
-  bike_message bm = query_status();
-  print_bm(bm);
-  render_bm(bm);
+  if (GLOBAL_COUNTER == 0) {
+    bike_message bm = query_status();
+    print_bm(bm);
+    render_bm(bm);
+  }
+
+  render_time();
   
   //TODO kick to new thread?
   check_ota();
-
-  //Wait 10s
-  Serial.println("Wait 500ms");
-  delay(500);
+  
+  delay(100);
+  GLOBAL_COUNTER = (GLOBAL_COUNTER + 1) % 5;
 }
