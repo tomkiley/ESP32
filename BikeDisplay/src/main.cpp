@@ -102,7 +102,7 @@ void setup_wifi() {
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to wifi");
-  display->setCursor(30,4);
+  display->setCursor(4,30);
   while (wifiMulti.run() != WL_CONNECTED) {
     Serial.print(".");
     display->print(".");
@@ -115,6 +115,8 @@ void setup_wifi() {
 
   // Alternatively, set insecure connection to skip server certificate validation 
   //client.setInsecure();
+
+  sleep(200);
 
   // Accurate time is necessary for certificate validation and writing in batches
   // For the fastest time sync find NTP servers in your area: https://www.pool.ntp.org/zone/
@@ -144,16 +146,19 @@ bike_message query_status() {
   bike_message bm;
 
   FluxQueryResult cadence = client.query(CADENCE_QUERY);
-  bm.cadence = cadence.getValueByIndex(0).getDouble();
+  cadence.next();
+  bm.cadence = cadence.getValueByName("_value").getDouble();
 
-  WebSerial.printf("Code %d\n", client.getLastStatusCode());
-  WebSerial.println(client.getLastErrorMessage());
 
   FluxQueryResult speed = client.query(SPEED_QUERY);
-  bm.speed = speed.getValueByIndex(0).getDouble();
+  speed.next();
+  bm.speed = speed.getValueByName("_value").getDouble();
 
   FluxQueryResult distance = client.query(DISTANCE_QUERY);
-  bm.distance = distance.getValueByIndex(0).getDouble();
+  distance.next();
+  bm.distance = distance.getValueByName("_value").getDouble();
+
+  WebSerial.println(distance.getError());
 
   return bm;
 }
@@ -169,18 +174,21 @@ void print_bm(const bike_message &bm) {
   Serial.println(bm.distance);
 
 
-  // WebSerial.print("Cadence ");
-  // WebSerial.println(bm.cadence);
+  WebSerial.print("Cadence ");
+  WebSerial.println(bm.cadence);
 
-  // WebSerial.print("Speed ");
-  // WebSerial.println(bm.speed);
+  WebSerial.print("Speed ");
+  WebSerial.println(bm.speed);
 
-  // WebSerial.print("Distance ");
-  // WebSerial.println(bm.distance);
+  WebSerial.print("Distance ");
+  WebSerial.println(bm.distance);
 
 }
 
 void render_bm(const bike_message &bm) {
+
+  if (bm.cadence == -1 || bm.speed == -1 || bm.distance == -1) return;
+
   display->clearScreen();
   display->fillScreen(myBLACK);
   
@@ -216,7 +224,7 @@ void render_time() {
   strftime (buffer,9,"%I:%M:%S",timeinfo);
 
   display->setCursor(35,6);
-  display->printf("        ");
+  display->printf("         ");
   display->setCursor(35,6);
   display->printf(buffer);
 }
@@ -248,7 +256,6 @@ void loop() {
 
   render_time();
   
-  //TODO kick to new thread?
   check_ota();
   
   delay(100);
