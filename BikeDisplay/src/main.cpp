@@ -34,7 +34,6 @@
 
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <WebSerial.h>
 
 #include "secrets.h"
 #include "types.h"
@@ -48,12 +47,6 @@
 //InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN);
 
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_BUCKET);
-
-AsyncWebServer server(80);
-
-// Data point
-Point sensor("wifi_status");
-
 MatrixPanel_I2S_DMA *display = nullptr;
 
 //TODO global cleanup
@@ -92,6 +85,7 @@ void displaySetup()
 
   display->setFont(&Picopixel);
   display->setTextWrap(false);
+  display->setBrightness(60); //255 range
 }
 
 void setup_wifi() {
@@ -110,19 +104,17 @@ void setup_wifi() {
   }
   Serial.println();
 
-  WebSerial.begin(&server);
-  server.begin();
-
   // Alternatively, set insecure connection to skip server certificate validation 
   //client.setInsecure();
 
-  sleep(200);
+  sleep(5);
 
   // Accurate time is necessary for certificate validation and writing in batches
   // For the fastest time sync find NTP servers in your area: https://www.pool.ntp.org/zone/
   // Syncing progress and the time will be printed to Serial.
   timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
 
+  client.setHTTPOptions(HTTPOptions().httpReadTimeout(20000).connectionReuse(true));
   // Check server connection
   if (client.validateConnection()) {
     Serial.print("Connected to InfluxDB: ");
@@ -144,21 +136,50 @@ void setup() {
 
 bike_message query_status() {
   bike_message bm;
+  int i;
+  FluxQueryResult cadence = NULL;
+  FluxQueryResult distance = NULL;
+  FluxQueryResult speed = NULL;
 
-  FluxQueryResult cadence = client.query(CADENCE_QUERY);
-  cadence.next();
-  bm.cadence = cadence.getValueByName("_value").getDouble();
+  i = 0;
+  do {
+    i++;
+    cadence = client.query(CADENCE_QUERY);
+    cadence.next();
+    bm.cadence = cadence.getValueByName("_value").getDouble();
+  } while (cadence.getError() != "" && i < 3);
 
+  if (cadence.getError() != "") {
+    Serial.println(cadence.getError());
+    bm.cadence = -1;
+  }
 
-  FluxQueryResult speed = client.query(SPEED_QUERY);
-  speed.next();
-  bm.speed = speed.getValueByName("_value").getDouble();
+  
+  i=0;
+  do {
+    i++;
+    speed = client.query(SPEED_QUERY);
+    speed.next();
+    bm.speed = speed.getValueByName("_value").getDouble();
+  } while (speed.getError() != "" && i < 3);
 
-  FluxQueryResult distance = client.query(DISTANCE_QUERY);
-  distance.next();
-  bm.distance = distance.getValueByName("_value").getDouble();
+  if (speed.getError() != "") {
+    Serial.println(speed.getError());
+    bm.speed = -1;
+  }
 
-  WebSerial.println(distance.getError());
+  i = 0;
+  do {
+    i++;
+    distance = client.query(DISTANCE_QUERY);
+    distance.next();
+    bm.distance = distance.getValueByName("_value").getDouble();
+  } while (distance.getError() != "" && i < 3);
+
+  if (distance.getError() != "") {
+    Serial.println(distance.getError());
+    bm.distance = -1;
+  }
 
   return bm;
 }
@@ -172,16 +193,6 @@ void print_bm(const bike_message &bm) {
 
   Serial.print("Distance ");
   Serial.println(bm.distance);
-
-
-  WebSerial.print("Cadence ");
-  WebSerial.println(bm.cadence);
-
-  WebSerial.print("Speed ");
-  WebSerial.println(bm.speed);
-
-  WebSerial.print("Distance ");
-  WebSerial.println(bm.distance);
 
 }
 
@@ -212,6 +223,17 @@ void render_bm(const bike_message &bm) {
     display->printf("%2.1f MI", bm.distance);
   }
 
+}
+
+void print_time() {
+  time_t rawtime;
+  struct tm * timeinfo;
+  char buffer [9];
+  
+  time ( &rawtime );
+  timeinfo = localtime ( &rawtime );
+  strftime (buffer,9,"%I:%M:%S",timeinfo);
+  serial->println(buffer);
 }
 
 void render_time() {
@@ -254,6 +276,7 @@ void loop() {
     render_bm(bm);
   }
 
+  print_time();
   render_time();
   
   check_ota();

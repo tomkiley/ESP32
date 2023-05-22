@@ -17,6 +17,7 @@ char* CADENCE_QUERY = "from(bucket: \"bike-test\")"
     "|> filter(fn: (r) => r._measurement == \"cadence\" and  r._field == \"value\")"
     "|> aggregateWindow(every: 5s, fn: median)"
     "|> fill(value: 0.0)"
+    "|> movingAverage(n: 3)"
     "|> last()";
 
 char* SPEED_QUERY = "from(bucket: \"bike-test\")"
@@ -24,11 +25,12 @@ char* SPEED_QUERY = "from(bucket: \"bike-test\")"
     "|> filter(fn: (r) => r._measurement == \"speed\" and  r._field == \"value\")"
     "|> aggregateWindow(every: 5s, fn: median)"
     "|> fill(value: 0.0)"
+    "|> movingAverage(n: 3)"
     "|> last()";
 
 char* DISTANCE_QUERY = "from(bucket: \"bike-test\")"
-    "|> range(start: -2h)"
+    "|> range(start: -12h)"
     "|> filter(fn: (r) => r._measurement == \"speed\" and  r._field == \"value\")"
-    "|> integral()";
+    "|> integral(unit:  1h)";
 
 #endif
