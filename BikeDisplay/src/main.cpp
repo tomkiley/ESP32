@@ -48,6 +48,7 @@
 
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_BUCKET);
 MatrixPanel_I2S_DMA *display = nullptr;
+TaskHandle_t query_task;
 
 //TODO global cleanup
 uint16_t myBLACK = display->color565(0, 0, 0);
@@ -123,15 +124,6 @@ void setup_wifi() {
     Serial.print("InfluxDB connection failed: ");
     Serial.println(client.getLastErrorMessage());
   }
-}
-
-void setup() {
-  Serial.begin(115200);
-
-  displaySetup();
-  setup_wifi();
-  setup_ota();
-  display->clearScreen();
 }
 
 bike_message query_status() {
@@ -233,7 +225,7 @@ void print_time() {
   time ( &rawtime );
   timeinfo = localtime ( &rawtime );
   strftime (buffer,9,"%I:%M:%S",timeinfo);
-  serial->println(buffer);
+  Serial.println(buffer);
 }
 
 void render_time() {
@@ -249,6 +241,36 @@ void render_time() {
   display->printf("         ");
   display->setCursor(35,6);
   display->printf(buffer);
+}
+
+void query_function( void * pvParameters ) {
+  while(1) {
+    if (GLOBAL_COUNTER == 0) {
+      bike_message bm = query_status();
+      print_bm(bm);
+      render_bm(bm);
+    }
+    delay(100);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  displaySetup();
+  setup_wifi();
+  setup_ota();
+  display->clearScreen();
+
+  xTaskCreatePinnedToCore(
+      query_function, /* Function to implement the task */
+      "Queries", /* Name of the task */
+      10000,  /* Stack size in words */
+      NULL,  /* Task input parameter */
+      0,  /* Priority of the task */
+      &query_task,  /* Task handle. */
+      1); /* Core where the task should run */
+
 }
 
 void loop() {
@@ -269,12 +291,6 @@ void loop() {
   //   Serial.print("InfluxDB write failed: ");
   //   Serial.println(client.getLastErrorMessage());
   // }
-
-  if (GLOBAL_COUNTER == 0) {
-    bike_message bm = query_status();
-    print_bm(bm);
-    render_bm(bm);
-  }
 
   print_time();
   render_time();
