@@ -26,6 +26,8 @@
   #define DEVICE "ESP8266"
 #endif
 
+#include <mutex>
+
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
@@ -49,6 +51,7 @@
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_BUCKET);
 MatrixPanel_I2S_DMA *display = nullptr;
 TaskHandle_t query_task;
+std::mutex display_lock;
 
 //TODO global cleanup
 uint16_t myBLACK = display->color565(0, 0, 0);
@@ -86,7 +89,14 @@ void displaySetup()
 
   display->setFont(&Picopixel);
   display->setTextWrap(false);
-  display->setBrightness(60); //255 range
+  display->setBrightness(30); //255 range
+  
+  display->clearScreen();
+  display->fillScreen(myBLACK);
+  
+  display->setTextSize(1); 
+  display->setTextColor(myRED, myBLACK);
+
 }
 
 void setup_wifi() {
@@ -192,27 +202,29 @@ void render_bm(const bike_message &bm) {
 
   if (bm.cadence == -1 || bm.speed == -1 || bm.distance == -1) return;
 
-  display->clearScreen();
-  display->fillScreen(myBLACK);
-  
-  display->setTextSize(1); 
-  display->setTextColor(myRED);
-
   //positions are lower left of char
   // chars ate 5 high, 3 wide
 
+  const std::lock_guard<std::mutex> lock(display_lock);
+
   if (bm.cadence != 0 || bm.distance != 0 ){
+    display->fillRect(1, 9, 34, 6, myBLACK);
     display->setCursor(1, 14);
     display->printf(" %3.0f RPM", bm.cadence);
 
+    display->fillRect(35, 9, 34, 6, myBLACK);
     display->setCursor(35, 14);
     display->printf("%2.1f MPH", bm.speed);
 
+    display->fillRect(1, 17, 34, 6, myBLACK);
     display->setCursor(1, 22);
     display->printf("%1d:%02d MIN", 0,1);
 
+    display->fillRect(35, 17, 34, 6, myBLACK);
     display->setCursor(35, 22);
     display->printf("%2.1f MI", bm.distance);
+  } else {
+    display->fillRect(1, 9, 62, 14, myBLACK);
   }
 
 }
@@ -237,8 +249,8 @@ void render_time() {
   timeinfo = localtime ( &rawtime );
   strftime (buffer,9,"%I:%M:%S",timeinfo);
 
-  display->setCursor(35,6);
-  display->printf("         ");
+  const std::lock_guard<std::mutex> lock(display_lock);
+  display->fillRect(35, 1, 34, 6, myBLACK);
   display->setCursor(35,6);
   display->printf(buffer);
 }
@@ -247,7 +259,7 @@ void query_function( void * pvParameters ) {
   while(1) {
     if (GLOBAL_COUNTER == 0) {
       bike_message bm = query_status();
-      print_bm(bm);
+      // print_bm(bm);
       render_bm(bm);
     }
     delay(100);
@@ -292,7 +304,7 @@ void loop() {
   //   Serial.println(client.getLastErrorMessage());
   // }
 
-  print_time();
+  // print_time();
   render_time();
   
   check_ota();
