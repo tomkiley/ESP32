@@ -139,49 +139,22 @@ void setup_wifi() {
 bike_message query_status() {
   bike_message bm;
   int i;
-  FluxQueryResult cadence = NULL;
-  FluxQueryResult distance = NULL;
-  FluxQueryResult speed = NULL;
+  FluxQueryResult combined = NULL;
 
+  bm.speed = bm.cadence = bm.distance = 0;
   i = 0;
   do {
     i++;
-    cadence = client.query(CADENCE_QUERY);
-    cadence.next();
-    bm.cadence = cadence.getValueByName("_value").getDouble();
-  } while (cadence.getError() != "" && i < 3);
+    combined = client.query(COMBINED);
+    while(combined.next()) {
+      String tag = combined.getValueByName("tag").getString();
+      
+      if (tag == "cadence") bm.cadence = combined.getValueByName("_value").getDouble();
+      else if (tag == "speed") bm.speed = combined.getValueByName("_value").getDouble();
+      else if (tag == "distance") bm.distance = combined.getValueByName("_value").getDouble();
+    }
+  } while (combined.getError() != "" && i < 3);
 
-  if (cadence.getError() != "") {
-    Serial.println(cadence.getError());
-    bm.cadence = -1;
-  }
-
-  
-  i=0;
-  do {
-    i++;
-    speed = client.query(SPEED_QUERY);
-    speed.next();
-    bm.speed = speed.getValueByName("_value").getDouble();
-  } while (speed.getError() != "" && i < 3);
-
-  if (speed.getError() != "") {
-    Serial.println(speed.getError());
-    bm.speed = -1;
-  }
-
-  i = 0;
-  do {
-    i++;
-    distance = client.query(DISTANCE_QUERY);
-    distance.next();
-    bm.distance = distance.getValueByName("_value").getDouble();
-  } while (distance.getError() != "" && i < 3);
-
-  if (distance.getError() != "") {
-    Serial.println(distance.getError());
-    bm.distance = -1;
-  }
 
   return bm;
 }

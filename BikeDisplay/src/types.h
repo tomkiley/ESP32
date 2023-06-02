@@ -13,24 +13,50 @@ typedef struct bike_message {
 // static char* DISTANCE_QUERY = "SELECT integral(value) FROM speed WHERE time >= now() - 90m and time <= now()";
 
 char* CADENCE_QUERY = "from(bucket: \"bike-test\")"
-    "|> range(start: -2h)"
+    "|> range(start: -5m)"
     "|> filter(fn: (r) => r._measurement == \"cadence\" and  r._field == \"value\")"
     "|> aggregateWindow(every: 1s, fn: median)"
     "|> fill(value: 0.0)"
-    "|> movingAverage(n: 3)"
+    "|> exponentialMovingAverage(n: 3)"
     "|> last()";
 
 char* SPEED_QUERY = "from(bucket: \"bike-test\")"
-    "|> range(start: -2h)"
+    "|> range(start: -5m)"
     "|> filter(fn: (r) => r._measurement == \"speed\" and  r._field == \"value\")"
     "|> aggregateWindow(every: 1s, fn: median)"
     "|> fill(value: 0.0)"
-    "|> movingAverage(n: 3)"
+    "|> exponentialMovingAverage(n: 3)"
     "|> last()";
 
 char* DISTANCE_QUERY = "from(bucket: \"bike-test\")"
     "|> range(start: -4h)"
     "|> filter(fn: (r) => r._measurement == \"speed\" and  r._field == \"value\")"
     "|> integral(unit:  1h)";
+
+
+char* COMBINED = ""
+"a = from(bucket: \"bike-test\")"
+    "|> range(start: -5m)"
+    "|> filter(fn: (r) => r._measurement == \"cadence\" and  r._field == \"value\")"
+    "|> aggregateWindow(every: 2s, fn: median)"
+    "|> fill(value: 0.0)"
+    "|> exponentialMovingAverage(n: 3)"
+    "|> last()"
+    "|> set(key: \"tag\", value: \"cadence\")"
+"b = from(bucket: \"bike-test\")"
+    "|> range(start: -5m)"
+    "|> filter(fn: (r) => r._measurement == \"speed\" and  r._field == \"value\")"
+    "|> aggregateWindow(every: 2s, fn: median)"
+    "|> fill(value: 0.0)"
+    "|> exponentialMovingAverage(n: 3)"
+    "|> last()"
+    "|> set(key: \"tag\", value: \"speed\")"
+"c = from(bucket: \"bike-test\")"
+    "|> range(start: -4h)"
+    "|> filter(fn: (r) => r._measurement == \"speed\" and  r._field == \"value\")"
+    "|> integral(unit:  1h)"
+    "|> set(key: \"tag\", value: \"distance\")"
+"union(tables: [a,b,c])"
+    ;
 
 #endif
