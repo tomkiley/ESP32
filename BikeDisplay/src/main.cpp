@@ -62,6 +62,10 @@ uint16_t myBLUE = display->color565(0, 0, 255);
 
 uint8_t GLOBAL_COUNTER = 0;
 
+time_t base_time = 0;
+int media_position = 0;
+int state = 0;
+
 void displaySetup()
 {
   HUB75_I2S_CFG mxconfig(
@@ -136,6 +140,11 @@ void setup_wifi() {
   }
 }
 
+time_t timegm(struct tm *t)
+{
+    return (mktime(t) - _timezone) - ((t->tm_isdst > 0) * 3600);
+} 
+
 bike_message query_status() {
   bike_message bm;
   int i;
@@ -152,6 +161,19 @@ bike_message query_status() {
       if (tag == "cadence") bm.cadence = combined.getValueByName("_value").getDouble();
       else if (tag == "speed") bm.speed = combined.getValueByName("_value").getDouble();
       else if (tag == "distance") bm.distance = combined.getValueByName("_value").getDouble();
+      else if (tag == "mp_pos") {
+        media_position = (int) combined.getValueByName("_value").getDouble();
+        struct tm t = combined.getValueByName("_time").getDateTime().value;
+        base_time = timegm(&t);
+      }
+      else if (tag == "mp_state") {
+        String current_state = combined.getValueByName("_value").getString();
+        if (current_state == "playing")  state = 1;
+        else if (current_state == "paused")  state = 2;
+        else if (current_state == "idle") state = 3;
+        else state = 0;
+      }
+
     }
   } while (combined.getError() != "" && i < 3);
 
@@ -180,24 +202,27 @@ void render_bm(const bike_message &bm) {
 
   const std::lock_guard<std::mutex> lock(display_lock);
 
-  if (bm.cadence != 0 || bm.distance != 0 ){
-    display->fillRect(1, 9, 34, 6, myBLACK);
-    display->setCursor(1, 14);
+  if (bm.cadence != 0 || bm.distance != 0 || state != 0 ){
+    display->setTextSize(2);
+
+    // display->fillRect(1, 9, 33, 7, myBLACK);
+    display->fillRect(1, 9, 62, 14, myBLACK);
+    display->setCursor(5, 18);
     display->printf(" %3.0f RPM", bm.cadence);
 
-    display->fillRect(35, 9, 34, 6, myBLACK);
-    display->setCursor(35, 14);
-    display->printf("%2.1f MPH", bm.speed);
+    // display->fillRect(35, 9, 33, 7, myBLACK);
+    // display->setCursor(35, 14);
+    // display->printf("%2.1f MPH", bm.speed);
 
-    display->fillRect(1, 17, 34, 6, myBLACK);
-    display->setCursor(1, 22);
-    display->printf("%1d:%02d MIN", 0,1);
+    // display->fillRect(1, 17, 34, 6, myBLACK);
+    // display->setCursor(5, 30);
+    // display->printf("%1d:%02d MIN", 0,1);
 
-    display->fillRect(35, 17, 34, 6, myBLACK);
-    display->setCursor(35, 22);
-    display->printf("%2.1f MI", bm.distance);
+    // display->fillRect(35, 17, 34, 6, myBLACK);
+    // display->setCursor(35, 22);
+    // display->printf("%2.1f MI", bm.distance);
   } else {
-    display->fillRect(1, 9, 62, 14, myBLACK);
+    display->fillRect(1, 9, 62, 24, myBLACK);
   }
 
 }
@@ -222,10 +247,37 @@ void render_time() {
   timeinfo = localtime ( &rawtime );
   strftime (buffer,9,"%I:%M:%S",timeinfo);
 
+  int current_position;
+
+  
+  switch (state) {
+    case 0: //off
+      current_position = 0;
+      break;
+    case 1: //playing
+      {
+        double diff = difftime(rawtime, base_time);
+        current_position = media_position + diff;
+        break;
+      }
+    case 2: //paused
+    case 3: //idle
+      current_position = media_position;
+      break;
+  }
+
   const std::lock_guard<std::mutex> lock(display_lock);
-  display->fillRect(35, 1, 34, 6, myBLACK);
+  display->setTextSize(1);
+  display->fillRect(37, 1, 34, 6, myBLACK);
   display->setCursor(35,6);
   display->printf(buffer);
+
+  if (state !=0) {
+    display->setTextSize(2);
+    display->fillRect(0, 19, 64, 11, myBLACK);
+    display->setCursor(5, 30);
+    display->printf("%02d:%02d", current_position / 60, current_position % 60);
+  }
 }
 
 void query_function( void * pvParameters ) {
