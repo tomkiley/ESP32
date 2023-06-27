@@ -26,6 +26,7 @@ const int panel_chain = 1;  // Total number of panels chained one to another.
 //  Eastern: "EST5EDT"
 //  Japanesse: "JST-9"
 //  Central Europe: "CET-1CEST,M3.5.0,M10.5.0/3"
-#define TZ_INFO "EST5EDT"
+// #define TZ_INFO "EST5EDT"
+#define TZ_INFO "EST5EDT,M3.2.0,M11.1.0"
 
 #endif

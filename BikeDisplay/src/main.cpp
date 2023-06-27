@@ -268,13 +268,13 @@ void render_time() {
 
   const std::lock_guard<std::mutex> lock(display_lock);
   display->setTextSize(1);
-  display->fillRect(37, 1, 34, 6, myBLACK);
+  display->fillRect(35, 1, 34, 6, myBLACK);
   display->setCursor(35,6);
   display->printf(buffer);
 
   if (state !=0) {
     display->setTextSize(2);
-    display->fillRect(0, 19, 64, 11, myBLACK);
+    display->fillRect(0, 20, 64, 12, myBLACK);
     display->setCursor(5, 30);
     display->printf("%02d:%02d", current_position / 60, current_position % 60);
   }
